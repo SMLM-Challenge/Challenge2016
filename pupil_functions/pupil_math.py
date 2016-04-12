@@ -20,7 +20,7 @@ class Geometry(object):
     ## __init__
     #
     # @param size The number of pixels in the PSF image, assumed square.
-    # @param pixel_size The size of the camera pixel in nm.
+    # @param pixel_size The size of the camera pixel in um.
     # @param wavelength The wavelength of the flourescence in um.
     # @param imm_index The index of the immersion media.
     # @param The numerical aperature of the objective.
