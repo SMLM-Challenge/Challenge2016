@@ -1,3 +1,284 @@
+function varargout = wobble_correct(varargin)
+% WOBBLE_CORRECT MATLAB code for wobble_correct.fig
+%      WOBBLE_CORRECT, by itself, creates a new WOBBLE_CORRECT or raises the existing
+%      singleton*.
+%
+%      H = WOBBLE_CORRECT returns the handle to a new WOBBLE_CORRECT or the handle to
+%      the existing singleton*.
+%
+%      WOBBLE_CORRECT('CALLBACK',hObject,eventData,handles,...) calls the local
+%      function named CALLBACK in WOBBLE_CORRECT.M with the given input arguments.
+%
+%      WOBBLE_CORRECT('Property','Value',...) creates a new WOBBLE_CORRECT or raises the
+%      existing singleton*.  Starting from the left, property value pairs are
+%      applied to the GUI before wobble_correct_OpeningFcn gets called.  An
+%      unrecognized property name or invalid value makes property application
+%      stop.  All inputs are passed to wobble_correct_OpeningFcn via varargin.
+%
+%      *See GUI Options on GUIDE's Tools menu.  Choose "GUI allows only one
+%      instance to run (singleton)".
+%
+% See also: GUIDE, GUIDATA, GUIHANDLES
+
+% Edit the above text to modify the response to help wobble_correct
+
+% Last Modified by GUIDE v2.5 12-Jun-2016 12:29:36
+
+% Begin initialization code - DO NOT EDIT
+gui_Singleton = 1;
+gui_State = struct('gui_Name',       mfilename, ...
+                   'gui_Singleton',  gui_Singleton, ...
+                   'gui_OpeningFcn', @wobble_correct_OpeningFcn, ...
+                   'gui_OutputFcn',  @wobble_correct_OutputFcn, ...
+                   'gui_LayoutFcn',  [] , ...
+                   'gui_Callback',   []);
+if nargin && ischar(varargin{1})
+    gui_State.gui_Callback = str2func(varargin{1});
+end
+
+if nargout
+    [varargout{1:nargout}] = gui_mainfcn(gui_State, varargin{:});
+else
+    gui_mainfcn(gui_State, varargin{:});
+end
+% End initialization code - DO NOT EDIT
+
+
+% --- Executes just before wobble_correct is made visible.
+function wobble_correct_OpeningFcn(hObject, eventdata, handles, varargin)
+% This function has no output args, see OutputFcn.
+% hObject    handle to figure
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+% varargin   command line arguments to wobble_correct (see VARARGIN)
+
+% Choose default command line output for wobble_correct
+handles.output = hObject;
+
+% Update handles structure
+guidata(hObject, handles);
+
+% UIWAIT makes wobble_correct wait for user response (see UIRESUME)
+% uiwait(handles.figure1);
+
+
+% --- Outputs from this function are returned to the command line.
+function varargout = wobble_correct_OutputFcn(hObject, eventdata, handles) 
+% varargout  cell array for returning output args (see VARARGOUT);
+% hObject    handle to figure
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Get default command line output from handles structure
+varargout{1} = handles.output;
+
+
+% --- Executes on button press in pushbutton1.
+function pushbutton1_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+% select localization file
+[fname, fpath] = uigetfile('*.*');
+
+fullname = fullfile(fpath,fname);
+
+set(handles.text5,'String',fullname);
+
+
+% --- Executes on button press in pushbutton2.
+function pushbutton2_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton2 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+% select ground truth file
+[fname, fpath] = uigetfile('*.csv');
+fullname = fullfile(fpath,fname);
+set(handles.text6,'String', fullname);
+
+
+
+function edit1_Callback(hObject, eventdata, handles)
+% hObject    handle to edit1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit1 as text
+%        str2double(get(hObject,'String')) returns contents of edit1 as a double
+%if ~exist(get(hObject,'String'),'dir')
+%    mkdir(get(hObject,'String'));
+%end
+
+% --- Executes during object creation, after setting all properties.
+function edit1_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit1 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+% --- Executes on button press in pushbutton3.
+function pushbutton3_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton3 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+foldpath = uigetdir(pwd,'Select a folder to store the output file');
+ 
+set(handles.edit1,'String', foldpath);
+
+
+% --- Executes on button press in pushbutton4.
+function pushbutton4_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton4 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+fullnameLoc = get(handles.text5,'String');
+%hasHeader = fgetl(fopen(fullnameLoc));
+%hasHeader = 1*(sum(isstrprop(hasHeader,'digit'))/length(hasHeader) < .6);
+%localData = csvread(fullnameLoc, hasHeader, 0);
+%SH: switched to importdata tool and defined columns to make more general
+localData =importdata(fullnameLoc);
+if isstruct(localData)
+    %strip the header
+    localData = localData.data;
+end
+xCol = str2num(get(handles.edit_x,'String'));
+yCol = str2num(get(handles.editY,'String'));
+frCol = str2num(get(handles.editFr,'String'));
+
+fullnameGT = get(handles.text6,'String');
+%assumes GT file is as defined in competition
+%CSV file. X col 3, y col 4.
+gtData = importdata(fullnameGT);
+XCOLGT =3;
+YCOLGT =4;
+gtAll = gtData(:,[XCOLGT,YCOLGT]);
+gt = unique(gtAll,'rows');
+
+frameIsOneIndexed = get(handles.radiobutton_is1indexed,'Value');
+
+[pathstr,~,~] = fileparts(fullnameLoc); 
+output_path = pathstr;
+xnm = localData(:,xCol);
+ynm = localData(:,yCol);
+frame = localData(:,frCol);
+
+%might be set by the users in future updates
+zmin = -750;zmax = 750;zstep = 10;%nm
+roiRadius = 500;%nm
+
+wobbleCorrectSimBead(xnm,ynm,frame, gt,zmin,zstep,zmax,roiRadius,frameIsOneIndexed,output_path)
+
+
+% --- Executes on button press in pushbutton5.
+function pushbutton5_Callback(hObject, eventdata, handles)
+% hObject    handle to pushbutton5 (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+
+function edit_x_Callback(hObject, eventdata, handles)
+% hObject    handle to edit_x (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of edit_x as text
+%        str2double(get(hObject,'String')) returns contents of edit_x as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function edit_x_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to edit_x (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function editY_Callback(hObject, eventdata, handles)
+% hObject    handle to editY (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of editY as text
+%        str2double(get(hObject,'String')) returns contents of editY as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function editY_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to editY (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+
+
+
+function editFr_Callback(hObject, eventdata, handles)
+% hObject    handle to editFr (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of editFr as text
+%        str2double(get(hObject,'String')) returns contents of editFr as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function editFr_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to editFr (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+%-------------------------------------------------------
+function wobbleCorrectSimBead(xnm,ynm,frame,gt,zmin,zstep,zmax,roiRadius,frameIsOneIndexed,output_path)
+
+nBead = size(gt,1);
+for ii = 1:nBead
+    beadPos = gt(ii,:);
+    ROInm(ii,1:2) = beadPos-roiRadius;%xmin ymin
+    ROInm(ii,3:4) = 2*roiRadius;%width height
+end
+
+zSlice = zmin:zstep:zmax;
+
+%frameIsOneIndexed = ~sum(frame==0) > 0;%should detect it automatically
+if ~frameIsOneIndexed
+    frame = frame+1;%have to account for possilbe zero-indexing or everthing will get screwed up
+end
+
+znm = zSlice(frame)';
+
+wobbleMatrix = wobbleCalibration(xnm, ynm, znm, nBead, 'ROI', ROInm, 'Zfit', znm, 'NumSplineBreak', 10,...
+    'GT', gt);
+[~, indCorr] = unique(wobbleMatrix(:,1));
+wobbleMatrixUnique = wobbleMatrix(indCorr,[2,3,1]);
+%save in csv file, units : nm, column order : X Y Z
+csvwrite(fullfile(output_path,'wobbleCorrectionData.csv'), wobbleMatrixUnique);
+saveas(gcf,fullfile(output_path,'XY wobble result.fig'));
+saveas(gcf,fullfile(output_path,'XY wobble result.png'));
+
+%------------------------------------------------------------------------
+
 function [wobbleMatrix] = wobbleCalibration(x,y,z,nBead,varargin)
 % WOBBLECALIBRATION Generate correction data for z-dependent "wobble"
 %
@@ -135,6 +416,7 @@ while ii<=narg
 end
 %Modified by Thanh-an Pham the 16th May 2016
 
+
 if hasROI
     for ii = 1:nBead
         bead{ii} = [ROI(ii,1),ROI(ii,2),ROI(ii,3) + ROI(ii,1), ROI(ii,4) + ROI(ii,2)];
@@ -169,7 +451,6 @@ n = numel(bead);
 zAll = [];
 gt_tmp = gt;
 k=1;
-
 for ii = 1:n
    isBead = x>bead{ii}(1) & y>bead{ii}(2) & x<bead{ii}(3) & y<bead{ii}(4);
    xBead{ii} = x(isBead);
@@ -241,8 +522,8 @@ end
 legend('X, combined fit','Y, combined fit', 'X, single bead fit', 'Y, single bead fit');
 xlabel('Z (nm)');
 ylabel('XY wobble (nm)')
-saveas(gcf,'XY wobble result.fig');
-saveas(gcf,'XY wobble result.png');
+%saveas(gcf,'XY wobble result.fig');
+%saveas(gcf,'XY wobble result.png');
 
 calData = [zfit(:), xWobble(:),yWobble(:)];
 if ~isempty(fsavename)
@@ -984,4 +1265,3 @@ end
 
 
 %-----------------------------------------
-
