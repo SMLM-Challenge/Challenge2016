@@ -1,12 +1,27 @@
-function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path)
-   
-    rng(123);               % Initialize the seed of the random generator
+function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path, dye, P, framerate)
+	
+    %% Emission parameters Alexa 647
+	if dye == 1
+
+        Q = 0.33;            % Quantum yeild of the dye
+        lambda = 647e-9;     % Wavelength in m
+        EC = 239000;         % Absorbtivity, Molar extinction coefficient in cm^2 / mol
+ 
+    end
     
+	%% Emission parameters Dendra2
+    if dye == 2 
+        Q = 0.55;            % Quantum yeild of the dye
+        lambda = 573e-9;     % Wavelength in m
+        EC = 4000;           % Absorbtivity, Molar extinction coefficient in cm^2 / mol
+    end
+
     %% Lifetime model
-    Ton         = 5; 
+    Ton         = 3; 
     Tdark       = 2.5;
-    Tbleaching  = 1;
+    Tbleaching  = 1.5;
     fstart      = 20; % number of removed frames
+	rng(123);               % Initialize the seed of the random generator
     
 	%% Read the positisons file
     cd(path);
@@ -29,10 +44,7 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
     fprintf('Range in Y: %6.3f ... %6.3f nm (fov %4.1f) \n', ymin, ymax, fov);
     fprintf('Depth in Z: %6.3f ... %6.3f nm \n', min(positions(:,3)), max(positions(:,3)));
      
-    %% Emission parameters
-    Q = 0.6;            % Quantum yeild of the dye
-    lambda = 500e-9;    % Wavelength in m
-    EC = 60000;         % Absorbtivity, Molar extinction coefficient in cm^2 / mol
+    
     h = 6.626E-34;      % Planck constant in mol^-1
     Na = 6.022e23;      % Number of Avogadro
     c = 3e8;            % Celerity in m/s
@@ -45,7 +57,7 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
     DistanceAtHalfMax = fov*0.55;    % Distance form the center, half maximum, in nm
     DistanceAtQuarterMax = fov*0.7; % Distance form the center, quarter maximum in nm
     slope = log(3)/(DistanceAtQuarterMax-DistanceAtHalfMax);
-    P = 200;              % Power laser in W / cm^2
+ 
     
     %% Display the power illumination
     pixelsize = 100; % in nm
@@ -56,12 +68,15 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
          power(x, y) = powerIllumination(double(x)*pixelsize, double(y)*pixelsize, xcenter, ycenter, slope, DistanceAtHalfMax); 
     end
     end
+    average_power = mean(mean(power));
+    fprintf('Average of power: %6.6f \n', average_power);
+     
     %MIJ.createImage(power);
     
     %% Flux of photons
-    framerate = 50;                 % in Hz
     flux = Q * s * P / e;           % Flux of photons per second
-    flux = flux / framerate;        % Flux of photons per frame
+    fprintf('Flux of photons per seconds: %6.6f \n', flux);
+    flux = flux / framerate;       % Flux of photons per frame
     fprintf('Flux of photons per frame: %6.6f \n', flux);
     epsilon = 0.01 * flux;
     
@@ -78,10 +93,8 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
     totalPhotons = 0;
     for k=1:nfluos
         pos = positions(k,:);
-        attenuation = powerIllumination(pos(1), pos(2), xcenter, ycenter, slope, DistanceAtHalfMax); 
-        [photons, tSwitch, onTimeII] = brightness_4states(attenuation*flux,Ton,Tdark,Tbleaching,nframes+fstart);
-        onTime = [onTime, onTimeII];
-        totOnTime = [totOnTime, sum(onTimeII)];
+        attenuation = powerIllumination(pos(1), pos(2), xcenter, ycenter, slope, DistanceAtHalfMax) / average_power; 
+        [photons] = brightness_palmSubframe(attenuation*flux,Ton,Tdark,Tbleaching,nframes+fstart);
         progression('Activate ', k);
         fprintf(fif, '%5.0f ', k);
         for f=1:nframes
@@ -101,7 +114,6 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
     fclose(fif);
 
 	disp(strcat('End of storage on ', path, 'activations.csv'));
-	disp(strcat('End of activation : ', strcat(num2str(count))));
     rateEffectiveActivations = count / nfluos;
     
     if stopEarly == 1
@@ -150,7 +162,7 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
         return;
     end
 
-    %% Plot time traces
+%% Plot time traces
 %     figure('Position',[200, 200, 1600, 1000]);
 %     np = 20;
 %     for ii = 1:np
@@ -183,8 +195,12 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
         fprintf(fid, '%5.0f, %5.0f, %6.6f \n', f, stats(f,1), stats(f,2));
     end
     fclose(fid);
-    
+  
 	%% Save stats frame
+    
+    fprintf('Number of activations, %6.0f\n', count);
+	fprintf('Average number of photons / activation, %6.6f\n', totalPhotons / count);
+
     fid = fopen(strcat(path, 'stats_activation_sumary.csv'), 'w');
     fprintf(fid, 'feature,value \n');
     fprintf(fid, 'Number of fluos, %6.0f\n', nfluos);
@@ -192,6 +208,7 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
 	fprintf(fid, 'Field of view (nm), %6.2f\n', fov);
 
     fprintf(fid, 'Number of activations, %6.0f\n', count);
+	fprintf(fid, 'Average number of photons / activation, %6.6f\n', totalPhotons / count);
 	fprintf(fid, 'Density - number of fluorophores per frame, %6.6f\n',  count / nframes);
 	fprintf(fid, 'Density - number of photons per frame, %6.6f\n', totalPhotons / nframes);
  
@@ -226,8 +243,8 @@ function P=powerIllumination(x, y, xcenter, ycenter, slope, DistanceAtHalfMax)
         P = 1 - 1 / (1+exp(-slope*(d-dm))); 
 end
 
-function [photons tSwitch onTime]=brightness_4states(Ion,Ton,Tdark,Tbl,frames)
-% INPUTS 
+function [photons]=brightness_palmSubframe(Ion,Ton,Tdark,Tbl,frames)
+% INPUTS
 % Ion: mean photon emission during on state
 % frames: # of frames
 % Rates defined here:
@@ -236,7 +253,7 @@ function [photons tSwitch onTime]=brightness_4states(Ion,Ton,Tdark,Tbl,frames)
 %
 %     UNIFORM    1/Tbl
 % OFF ------> ON ------> BLEACH
-%             |/\ 
+%             |/\
 %             | |
 %      1/Ton  | | 1/Tdark
 %             | |
@@ -245,172 +262,94 @@ function [photons tSwitch onTime]=brightness_4states(Ion,Ton,Tdark,Tbl,frames)
 %             DARK
 %
 % NB: the OFF to ON is not poisson distributed it is uniform random
-% To reflect that in normal experimental conditions constant imaging density is 
+% To reflect that in normal experimental conditions constant imaging density is
 % maintained
-% 
-% All switching events are rounded to single frame resolution for simplicity
+%
+% Switching events are integrated over each individual frame (ie half-frame blink gives
+% half frame intensity
 %
 % Note actual mean lifetime in On state is 1/(1/Ton + 1/Tbleach) due to two decay paths
+% OPTIONAL ARGUMENTS
+% 'BrightMoleculesOnly': Only return molecules which switch on for >=1 frame (ie ignore molecules
+%       which bleach too fast to be counted). DEFAULT: TRUE
 % OUTPUTS
-% photons: photon count for each frame (with poisson noise)
-% tSwitch, switch vector is a list time of transitions between an emitting state (on)
-%   and a non emitting state (dark,off bleached) or vice versa
-% onTime: array of on times for debugging
+% photons: photon count for each frame (no noise)
 % Note, molecules alway starts in off state
 %
 
-    toInt =@(tIn) max(1,round(tIn));
+%nArg = numel(varargin);
+%ii=1;
+%while ii<=nArg
+%    ii=ii+1;
+%end
 
-    %calculate the frame where the molecule turns on
-    tToOn = toInt(frames*rand);
-    tSwitch=[];
-    onTime=[];
-    if tToOn<frames
-        tSwitch(1) = tToOn;
 
-        isBleach = false;
-        %while not bleached
-        while ~isBleach && tSwitch(end)<=frames
-            %   calculate the frame where the molecule goes dark or bleaches
-            tToBl = -Tbl*log(rand);
-            tToDark = -Ton*log(rand);
-
-            %   if bleaches before goes dark -> break
-            if tToBl<tToDark
-                isBleach = true;
-                tToBl= toInt(tToBl);
-                tSwitch= [tSwitch,tSwitch(end)+tToBl];
-                onTime =[onTime,tToBl];
+%calculate the frame where the molecule turns on
+tToOn = max(1,frames*rand);%Uniform probability of on switching within the movie
+tSwitch=[];
+if tToOn<frames
+    tSwitch(1) = tToOn;
+    
+    isBleach = false;
+    %while not bleached
+    while ~isBleach && tSwitch(end)<=frames
+        %   calculate the frame where the molecule goes dark or bleaches
+        tToBl = -Tbl*log(rand);
+        tToDark = -Ton*log(rand);
+        
+        %   if bleaches before goes dark -> break
+        if tToBl<tToDark
+            isBleach = true;
+            tSwitch= [tSwitch,tSwitch(end)+tToBl];
             %   else calculate when the molecule goes back on
-            else 
-                tToDark = toInt(tToDark);
-                tSwitch= [tSwitch,tSwitch(end)+tToDark];
-                onTime =[onTime,tToDark];
-
-                %switch back from dark to on
-                tDarkToOn = toInt(-Tdark*log(rand));
-                tSwitch= [tSwitch,tSwitch(end)+tDarkToOn];
-            end
+        else
+            tSwitch= [tSwitch,tSwitch(end)+tToDark];
+            %switch back from dark to on
+            tDarkToOn = -Tdark*log(rand);
+            tSwitch= [tSwitch,tSwitch(end)+tDarkToOn];
         end
     end
-
-    %convert tSwitch to list of on/off frames
-    isOn = zeros(1,frames);
-    jj=1;
-    stateCur =0;
-    idxCur = 1;
-    for ii = 1:numel(tSwitch);
-        tS= tSwitch(ii);
-        isOn(idxCur:tS) = stateCur;
-        stateCur = ~stateCur;%switch state
-        idxCur = tS+1;
-    end
-    %propogate the final state to the end of movie 
-    if idxCur<=frames
-        isOn(idxCur:end) = stateCur;
-    end
-
-    %chop off any molecules that extend beyond end of movied
-    if numel(isOn) > frames
-        isOn(frames+1:end)=[];
-    end
-
-
-    %calculate poisson emission per frame, allowing for bleaching halfway through a frame
-    %Turn isOn into poisson distributed photon emission
-    photons=poissrnd(Ion*isOn);
 end
 
-% Intensity trace of an emitter (photons per frame).
-%
-% PALM like photokinetics i.e. one activation with several quick blinks
-% tomas.lukes@epfl.ch
+%integrate the switching to single frame resolution
+isOn = zeros(1,frames);
+isOnCur =0;
 
-function photons=brightness_palm(Ion,Ton,Toff,Tbl,frames,fstart,blinks)
-    frames = frames + fstart; % measurement start "fstart" number of frames after excitation
-    cycle= Ton + Toff;
-    cycles=10 + ceil(frames/cycle);
-
-    times=[-Toff*log(rand(1,cycles));-Ton*log(rand(1,cycles))];
-    
-    if rand < Ton/cycle        % Ton/cycle .. probability that the fluorophore is on
-       times(1)=0;             % fluorophore is off
-    end
-
-    times=cumsum(times(:));
-    while times(end) < frames
-       cycles=ceil(2*(frames - times(end))/cycle);
-       cycles=[-Toff*log(rand(1,cycles));-Ton*log(rand(1,cycles))];
-       cycles(1)=cycles(1) + times(end);
-       times=[times;cumsum(cycles(:))];
-    end
-    times=times.';
-    Ton=times(2:2:end) - times(1:2:end); 
-    blinks = round(blinks(1) + (blinks(2)-blinks(1))*rand(1)); % limited number of blinks
-
-    Tbl=cumsum(Ton) + Tbl*log(rand);
-    n=find(Tbl > 0);
-    
-    if any(n)
-       Ton(n(2:end))=0;
-       n=n(1);
-       Ton(n)=Ton(n) - Tbl(n);
-       times(2*n)=times(2*n) - Tbl(n);
-
-       idx = round(1+(n-blinks)*rand(1)); % blinking event start index
+tSwitchInt = floor(tSwitch);
+for ii = 1:frames
+    if ~(any(tSwitchInt==ii))
+        isOn(ii)=isOnCur;%just propogate current state
     else
-       idx = round(1+(length(Ton)-1)*rand(1)); % blinking event start index
+        subFrSwitchTime = tSwitch(find(tSwitchInt==ii)) - ii;
+        totOnTimeFr = 0;
+        tCurFr = 0;
+        %add all the sub frame on states together
+        for jj = 1:numel(subFrSwitchTime)
+            tState = subFrSwitchTime(jj)-tCurFr;
+            if isOnCur
+                totOnTimeFr = totOnTimeFr+tState;
+            end
+            isOnCur = ~isOnCur;
+            tCurFr = subFrSwitchTime(jj);
+        end
+        %add the on time from the end of the frame if its still in the on state
+        if isOnCur
+            tState = 1-tCurFr;
+            totOnTimeFr = totOnTimeFr+tState;
+        end
+        isOn(ii) = totOnTimeFr;
     end
-
-    Ton(1,1:idx-1)=0;
-    Ton(1,idx+blinks+1:end)=0; % only one on switching event per fluorophore
-
-    photons=[zeros(size(Ton));Ion*Ton];
-    photons=cumsum(photons(:));
-    photons=diff(interp1(times,photons,0:frames,'linear',0));
-    photons=photons(fstart+1:end);
+    photons=Ion*isOn;
 end
 
-%
-% 2-states model of the photon emissions
-%
-% Simulate an image sequence of blinking emitters.
-% Created by Marcel Leutenegger, edited by Tomas Lukes
-% last change 30.5.2015
-%
-% Inputs:
-% Ion       Signal per frame (on state) [photon]
-% Ton       Average duration of the on state [frame]
-% Toff      Average duration of the off state [frame]
-% Tbl       Average bleaching time (on state) [frame]          {inf}
-%
-% Output:   Intensity trace of an emitter (photons per frame).
-%
-function photons=brightness(Ion,Ton,Toff,Tbl,frames)
-    cycle=Ton + Toff;
-    cycles=10 + ceil(frames/cycle);
-    times=[-Toff*log(rand(1,cycles));-Ton*log(rand(1,cycles))];
-    if rand < Ton/cycle        % initialize with a random start state:
-        times(1)=0;             % exponential distribution has no memory
-    end
-    times=cumsum(times(:));
-    while times(end) < frames
-        cycles=ceil(2*(frames - times(end))/cycle);
-        cycles=[-Toff*log(rand(1,cycles));-Ton*log(rand(1,cycles))];
-        cycles(1)=cycles(1) + times(end);
-        times=[times;cumsum(cycles(:))];
-    end
-    times=times.';
-    Ton=times(2:2:end) - times(1:2:end);
-    Tbl=cumsum(Ton) + Tbl*log(rand);
-    n=find(Tbl > 0);
-    if any(n)
-        Ton(n(2:end))=0;
-        n=n(1);
-        Ton(n)=Ton(n) - Tbl(n);
-        times(2*n)=times(2*n) - Tbl(n);
-    end
-    photons=[zeros(size(Ton));Ion*Ton];
-    photons=cumsum(photons(:));
-    photons=diff(interp1(times,photons,0:frames,'linear',0));
+%-----------------------------------------------------
+function stateVector = getStateVector(tSwitch);
+%helper function for debugging
+
+nSwitch = numel(tSwitch);
+stateVector = zeros(size(tSwitch));
+if nSwitch>0
+    stateVector(1:2:end) = 1;
+end
+end
 end
