@@ -20,8 +20,7 @@ function [photons]=brightness_palmSubframe(Ion,Ton,Tdark,Tbl,frames)
 % To reflect that in normal experimental conditions constant imaging density is 
 % maintained
 % 
-% All switching events are rounded to single frame resolution for simplicity
-% Switching events < 0.5 frame are ignored
+% All switching is calculated at sub-frame resolution and then integrated o  er each frame.
 %
 % Note actual mean lifetime in On state is 1/(1/Ton + 1/Tbleach) due to two decay paths
 % OPTIONAL ARGUMENTS
@@ -66,30 +65,6 @@ if tToOn<frames
         end
     end
 end
-
-%%round the switch matrix
-%tSwitchInt = round(tSwitch);
-%
-%%convert tSwitch to list of on/off frames
-%isOn = zeros(1,frames);
-%jj=1;
-%stateCur =0;
-%idxCur = 1;
-%for ii = 1:numel(tSwitchInt);
-%    tS= tSwitchInt(ii);
-%    isOn(idxCur:tS) = stateCur;
-%    stateCur = ~stateCur;%switch state
-%    idxCur = tS+1;
-%end
-%%propogate the final state to the end of movie 
-%if idxCur<=frames
-%    isOn(idxCur:end) = stateCur;
-%end
-%
-%%chop off any molecules that extend beyond end of movied
-%if numel(isOn) > frames
-%    isOn(frames+1:end)=[];
-%end
 
 isOn = zeros(1,frames);
 isOnCur =0;
