@@ -1,12 +1,27 @@
-function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path, dye, P, framerate)
-	
+%% This Matlab script activates a list of molecules following a 4-states model.
+% This is pre-set for 2 dyes: Alexa647 and Dendra2.
+% The input file is the positions.csv file, 1 molecule per row, coordinate in nm, x, y, z
+
+%% Authorship
+% Seamus Holden has written the core function brightness_palmSubframe() 
+% Tomas Lukes has actively participated to build the model
+% Daniel Sage has written the main function
+
+function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, framerate)
+% activate fluorophores
+%   nframes: number of frames
+%   fov: file of view, size of the fov (square) in nm
+%   path: directory where to find the input 'positions.csv' and where to
+%   store the results
+%   dye: pre-set of the dye, 1 for Alexy647 or 2 for Dendra2
+%   P: Nominal power laser in Watt
+%   framerate: in Hertz
+
     %% Emission parameters Alexa 647
 	if dye == 1
-
         Q = 0.33;            % Quantum yeild of the dye
         lambda = 647e-9;     % Wavelength in m
         EC = 239000;         % Absorbtivity, Molar extinction coefficient in cm^2 / mol
- 
     end
     
 	%% Emission parameters Dendra2
@@ -71,8 +86,6 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
     average_power = mean(mean(power));
     fprintf('Average of power: %6.6f \n', average_power);
      
-    %MIJ.createImage(power);
-    
     %% Flux of photons
     flux = Q * s * P / e;           % Flux of photons per second
     fprintf('Flux of photons per seconds: %6.6f \n', flux);
@@ -115,11 +128,7 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, stopEarly, path
 
 	disp(strcat('End of storage on ', path, 'activations.csv'));
     rateEffectiveActivations = count / nfluos;
-    
-    if stopEarly == 1
-        return;
-    end
-      
+          
     %% Plot stats
     figure('Position',[100, 100, 900, 900]),
     axes('Position', [0.05 0.05 .44 .27]);
@@ -345,11 +354,10 @@ end
 %-----------------------------------------------------
 function stateVector = getStateVector(tSwitch);
 %helper function for debugging
-
-nSwitch = numel(tSwitch);
-stateVector = zeros(size(tSwitch));
-if nSwitch>0
-    stateVector(1:2:end) = 1;
-end
+    nSwitch = numel(tSwitch);
+    stateVector = zeros(size(tSwitch));
+    if nSwitch>0
+        stateVector(1:2:end) = 1;
+    end
 end
 end

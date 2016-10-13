@@ -16,4 +16,4 @@ framerate = 50;      % in Hz
 % P = 360;              % Power laser in W / cm^2
 % framerate = 10;      % in Hz
 
-activate_fluos(nframes, fov, 0, '/Users/sage/Desktop/activation-final/MT1.N1.LD/', dye, P, framerate);
+activate_fluos(nframes, fov, '/Users/sage/Desktop/activation-final/MT1.N1.LD/', dye, P, framerate);
