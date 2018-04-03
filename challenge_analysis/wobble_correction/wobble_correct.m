@@ -268,7 +268,7 @@ end
 
 znm = zSlice(frame)';
 
-wobbleMatrix = wobbleCalibration(xnm, ynm, znm, nBead, 'ROI', ROInm, 'Zfit', znm, 'NumSplineBreak', 10,...
+wobbleMatrix = wobbleCalibration(xnm, ynm, znm, nBead, 'ROI', ROInm, 'Zfit', zSlice, 'NumSplineBreak', 10,...
     'GT', gt);
 [~, indCorr] = unique(wobbleMatrix(:,1));
 wobbleMatrixUnique = wobbleMatrix(indCorr,[2,3,1]);
