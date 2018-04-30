@@ -1,47 +1,106 @@
-%% This Matlab script activates a list of molecules following a 4-states model.
-% This is pre-set for 2 dyes: Alexa647 and Dendra2.
-% The input file is the positions.csv file, 1 molecule per row, coordinate in nm, x, y, z
-
-%% Authorship
-% Seamus Holden has written the core function brightness_palmSubframe() 
-% Tomas Lukes has actively participated to build the model
-% Daniel Sage has written the main function
-
-function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, framerate)
-% activate fluorophores
-%   nframes: number of frames
-%   fov: file of view, size of the fov (square) in nm
-%   path: directory where to find the input 'positions.csv' and where to
-%   store the results
-%   dye: pre-set of the dye, 1 for Alexy647 or 2 for Dendra2
-%   P: Nominal power laser in Watt
-%   framerate: in Hertz
-
-    %% Emission parameters Alexa 647
-	if dye == 1
+function rateEffectiveActivations = activation_4states(Ton, Tdark, Tbleaching, nframes, framerate, fov, pixelsize, dye, power_laser, path)
+% ACTIVATION_4STATES - Activate a list of fluorophores with a 4-states model
+%
+% Description
+%
+%        UNIFORM    1/Tbl
+%   OFF ------> ON ------> BLEACH
+%             | /\
+%             | |
+%      1/Ton  | | 1/Tdark
+%             | |
+%            \/ |
+%             DARK
+%
+%   The input is a list of position (X, Y, Z) stored in a CSV file.
+%       The filename is hardcoded 'positions.csv', this input file is
+%       required.
+%   The output is a list of activation (count, frame, X, Y, Z, number of photons) stored in a CSV file.
+%       The filename is harcoded 'activations.csv.'
+%
+% Project
+%   Simulator for the challenge SMLMS 2016
+%   Benchmarking of single-molecule localization software
+%
+% Reference
+%   Citation: submitted
+%   Website: http://bigwww.epfl.ch/smlm/
+% 
+% Authors
+%   Seamus Holden, 
+%   Tomas Lukes,
+%   Daniel Sage, daniel.sage@epfl.ch, Biomedical Imaging Group, EPFL
+%
+% Date
+%   May 2016
+%
+% Input parameters 
+%   Ton           On (recommended value 3)
+%   Tdark         Dark (recommended value 2.5
+%   Tbleaching:   Bleaching (recommended value 1.5
+%   nframes:      number of frames
+%   framerate:    frame rate in Hz (typical value 10)
+%   fov:          field of view in nm (typical value 6400)
+%   pixelsize:    size of camera pixel in nm
+%   path:         directory to store the results
+%   dye:          'Alexa647' or 'Dendra2'
+%   power_laser:  power of the laser in  W / cm^2 (typical value 300)
+%
+% Output parameters
+%   rateEffectiveActivations: rate of activations per frame
+% 
+% Required
+%   Other m-files required: none
+%   MAT-files required: none
+%   A CSV position file: required
+%	
+% Examples of usage
+%    >> rate = activation_4states(3, 2.5, 1.5, 100, 10, 6400, 100, 'Alexa647', 200, pwd)
+%    >> rate = activation_4states(3, 2.5, 1.5, 100, 10, 6400, 100, 'Dendra2', 200, pwd)
+%
+% Conditions of usage
+%     This program is free software: you can redistribute it and/or modify
+%     it under the terms of the GNU General Public License as published by
+%     the Free Software Foundation, either version 3 of the License, or
+%     (at your option) any later version.
+%     This program is distributed in the hope that it will be useful,
+%     but WITHOUT ANY WARRANTY; without even the implied warranty of
+%     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%     GNU General Public License for more details.
+%     You should have received a copy of the GNU General Public License
+%     along with this program.  If not, see <http://www.gnu.org/licenses/>.
+%
+%
+	
+    %% Other Fixed parameters
+    fstart      = 20;   % number of removed first frames
+   
+    Q = -1;
+    %% Emission parameters Alexa647
+	if (strcmpi(dye, 'Alexa647') == 1)
         Q = 0.33;            % Quantum yeild of the dye
         lambda = 647e-9;     % Wavelength in m
         EC = 239000;         % Absorbtivity, Molar extinction coefficient in cm^2 / mol
-    end
+	end
     
 	%% Emission parameters Dendra2
-    if dye == 2 
+	if (strcmpi(dye, 'Dendra2') == 1)
         Q = 0.55;            % Quantum yeild of the dye
         lambda = 573e-9;     % Wavelength in m
         EC = 4000;           % Absorbtivity, Molar extinction coefficient in cm^2 / mol
-    end
+	end
 
-    %% Lifetime model
-    Ton         = 3; 
-    Tdark       = 2.5;
-    Tbleaching  = 1.5;
-    fstart      = 20; % number of removed frames
-	rng(123);               % Initialize the seed of the random generator
+    if Q <= 0
+        fprintf('This dye (%s) is unkown \n', dye);
+        return;
+    end
+ 
+	rng(123);         % Initialize the seed of the random generator
     
 	%% Read the positisons file
     cd(path);
-    positions = csvread(strcat(path, 'positions.csv'));
-    path = strcat(path, '-', num2str(nframes), '-', num2str(fov), '/');
+    positions = csvread([path filesep 'positions.csv']);
+    path = [path filesep  'activations-' num2str(nframes) '-' num2str(fov) filesep];
     if ~exist(path, 'dir')
         mkdir(path);
     end
@@ -58,11 +117,10 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, f
     fprintf('Range in X: %6.3f ... %6.3f nm (fov %4.1f) \n', xmin, xmax, fov);
     fprintf('Range in Y: %6.3f ... %6.3f nm (fov %4.1f) \n', ymin, ymax, fov);
     fprintf('Depth in Z: %6.3f ... %6.3f nm \n', min(positions(:,3)), max(positions(:,3)));
-     
-    
-    h = 6.626E-34;      % Planck constant in mol^-1
-    Na = 6.022e23;      % Number of Avogadro
-    c = 3e8;            % Celerity in m/s
+        
+    h = 6.626E-34;               % Planck constant in mol^-1
+    Na = 6.022e23;               % Number of Avogadro
+    c = 3e8;                     % Celerity in m/s
     e = h * c / lambda;          % Energy of a Photon in J
     s = 1000 * log(10)*EC / Na;  % Absorption cross section in cm^2
     
@@ -72,10 +130,8 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, f
     DistanceAtHalfMax = fov*0.55;    % Distance form the center, half maximum, in nm
     DistanceAtQuarterMax = fov*0.7; % Distance form the center, quarter maximum in nm
     slope = log(3)/(DistanceAtQuarterMax-DistanceAtHalfMax);
- 
     
     %% Display the power illumination
-    pixelsize = 100; % in nm
     fovPixel = int16(fov / pixelsize);
     power = zeros(fovPixel, fovPixel);
     for x=1 : fovPixel
@@ -85,9 +141,9 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, f
     end
     average_power = mean(mean(power));
     fprintf('Average of power: %6.6f \n', average_power);
-     
+    
     %% Flux of photons
-    flux = Q * s * P / e;           % Flux of photons per second
+    flux = Q * s * power_laser / e;% Flux of photons per second
     fprintf('Flux of photons per seconds: %6.6f \n', flux);
     flux = flux / framerate;       % Flux of photons per frame
     fprintf('Flux of photons per frame: %6.6f \n', flux);
@@ -96,11 +152,10 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, f
     %% Generate fluorophore time trace
  	count = 0;
     onTime=[];
-    totOnTime = [];
     stats = zeros(nframes, 2);
     activate = zeros(nfluos,1);
-	fid = fopen(strcat(path, 'activations.csv'), 'w');
-    fif = fopen(strcat(path, 'stats_activation_fluos.csv'), 'w');
+	fid = fopen([path filesep 'activations.csv'], 'w');
+    fif = fopen([path filesep 'stats_activation_fluos.csv'], 'w');
 	fprintf(fid, 'Ground-truth,frame,xnano,ynano,znano,intensity \n');
 	fprintf(fif, 'fluos,f1,f2,f3,f4,f5,f6,f7,f8,f9,f10,f11,f12,f13,f14,f15,f16,f17,f18,f19,f20,f21,f22,f23,f24,f25 \n');
     totalPhotons = 0;
@@ -128,7 +183,7 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, f
 
 	disp(strcat('End of storage on ', path, 'activations.csv'));
     rateEffectiveActivations = count / nfluos;
-          
+      
     %% Plot stats
     figure('Position',[100, 100, 900, 900]),
     axes('Position', [0.05 0.05 .44 .27]);
@@ -167,35 +222,6 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, f
     ylabel('Freq.');
     legend(sprintf('Mean on time per blink %4.1f', mean(onTime)));  
 
-    if stopEarly == 2
-        return;
-    end
-
-%% Plot time traces
-%     figure('Position',[200, 200, 1600, 1000]);
-%     np = 20;
-%     for ii = 1:np
-%         subplot(np,2,2*ii-1);
-%         plot(photons(ii,:));
-%         if ii==1
-%             title('Whole time trace');
-%         end;
-%         set(gca,'XTickLabel','')
-%         ylim([0 flux]);
-%         set(gca,'Xtick',[0:2000:nframes],'XTickLabel',[0:2000:nframes]);
-%         idx = find(photons(ii,:)>0,1);
-%         ttrace = photons(ii,max(idx-10,1):min(idx+10-1,nframes));
-%         subplot(np,2,2*ii);
-%         plot(ttrace);
-%         
-%         if ii==1; 
-%             title('Zoom on the first burst');
-%         end;
-%         set(gca,'YTickLabel','')
-%         ylim([0 flux]);
-%         set(gca,'Xtick', 0:2:20, 'XTickLabel', idx-10:2:idx+10);
-%     end
-%     print('profiles', '-dpng', '-r300'); 
     
     %% Save stats frame
     fid = fopen(strcat(path, 'stats_activation_frames.csv'), 'w');
@@ -225,7 +251,7 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, f
     fprintf(fid, 'Center of power illumination X (nm), %6.3f\n', ycenter);
     fprintf(fid, 'Distance at half maximum illumination (nm), %6.3f\n', DistanceAtHalfMax);
     fprintf(fid, 'Distance at quarter maximum illumination (nm), %6.3f\n', DistanceAtQuarterMax);
-    fprintf(fid, 'Power illumination (W), %6.3f\n', P);
+    fprintf(fid, 'Power illumination (W), %6.3f\n', power_laser);
     
     fprintf(fid, 'Framerate, %6.3f\n', framerate);
     fprintf(fid, 'Maximum flux of photons per frame, %6.3f\n', flux);
@@ -235,7 +261,7 @@ function rateEffectiveActivations = activate_fluos(nframes, fov, path, dye, P, f
     fprintf(fid, 'Tbleaching, %6.3f\n', Tbleaching);
 	fclose(fid);
     
- 
+    cd(path);
 end
 
 % Progression
@@ -285,13 +311,6 @@ function [photons]=brightness_palmSubframe(Ion,Ton,Tdark,Tbl,frames)
 % photons: photon count for each frame (no noise)
 % Note, molecules alway starts in off state
 %
-
-%nArg = numel(varargin);
-%ii=1;
-%while ii<=nArg
-%    ii=ii+1;
-%end
-
 
 %calculate the frame where the molecule turns on
 tToOn = max(1,frames*rand);%Uniform probability of on switching within the movie
@@ -353,7 +372,8 @@ end
 
 %-----------------------------------------------------
 function stateVector = getStateVector(tSwitch);
-%helper function for debugging
+    %helper function for debugging
+
     nSwitch = numel(tSwitch);
     stateVector = zeros(size(tSwitch));
     if nSwitch>0
@@ -361,3 +381,4 @@ function stateVector = getStateVector(tSwitch);
     end
 end
 end
+
