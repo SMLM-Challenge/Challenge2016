@@ -23,9 +23,7 @@ function [photons]=brightness_palmSubframe(Ion,Ton,Tdark,Tbl,frames)
 % All switching is calculated at sub-frame resolution and then integrated o  er each frame.
 %
 % Note actual mean lifetime in On state is 1/(1/Ton + 1/Tbleach) due to two decay paths
-% OPTIONAL ARGUMENTS
-% 'BrightMoleculesOnly': Only return molecules which switch on for >=1 frame (ie ignore molecules 
-%       which bleach too fast to be counted). DEFAULT: TRUE
+% ARGUMENTS
 % OUTPUTS
 % photons: photon count for each frame (no noise)
 % Note, molecules alway starts in off state
