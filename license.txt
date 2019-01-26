@@ -1,6 +1,8 @@
-LM challenge 2016 simulator and analyser
-Copyright (C) 2016 LM Challenge committee
-(http://bigwww.epfl.ch/smlm/challenge2016/)
+Single-Molecule Localization Microscopy - Software Benchmarking
+Copyright (C) 2016-2019 Dr Daniel Sage, EPFL, Swizterland
+Copyright (C) 2016-2019 Dr Seamus Holden, Newcastle University, UK 
+Copyright (C) 2016-19 LM Challenge committee
+(http://bigwww.epfl.ch/smlm/)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
